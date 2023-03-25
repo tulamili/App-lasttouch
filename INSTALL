@@ -1,18 +1,18 @@
 
 ## INSTALL
 
-cpanm App::lastaccess
+cpanm App::lasttouch
 
 
 ## UNINSTALL 
 
-cpanm -U App::lastaccess
+cpanm -U App::lasttouch
 
 
 ■ コマンド lastacesss を使えるようにする方法 : 
 
-   インストール:  	cpanm    App::lastaccess
-アンインストール: 	cpanm –U App::lastaccess
+   インストール:  	cpanm    App::lasttouch
+アンインストール: 	cpanm –U App::lasttouch
 
 cpanmが使えない場合は、cpan でも良いが、インストールしたモジュールの
 アンインストールが難しくなるであろう。(アンインストールとは、インストール
@@ -30,4 +30,4 @@ cpanmが使えない場合は、cpan でも良いが、インストールした�
 それぞれ26ページである。
 
 
--- 2022-10-14(fri) Toshiyuki Shimono bin4tsv@gmail.com
+-- 2023-03-25(sat) Toshiyuki Shimono bin4tsv@gmail.com
