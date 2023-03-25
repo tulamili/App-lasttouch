@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+use 5.014 ; use strict ; use warnings ; 
+use File::Find ; 
+use Time::HiRes qw[ stat tv_interval time gettimeofday ] ;
+use Getopt::Std ; 
+#use Getopt::Long qw [ GetOptions :config bundling no_ignore_case pass_through ] ; # GetOptionsFromArray ] ;
+use Term::ANSIColor qw[ :constants ] ; $Term::ANSIColor::AUTORESET = 1 ;
+use Pod::Perldoc ;
+use feature qw[ say ] ;
+
+my $start_time = [ gettimeofday ] ;
+my %o ; 
+getopts ',acd:g:',\%o ; 
+$o{d} //= 1 ; # ディレトクリに対する処理を抑制するかどうか。0が明示的に与えられたら抑制。
+$o{g} //= 12 ; # 最近アクセスされたファイルを最大何個取り出すか
+my $sf = $o{a} ? 8 : $o{c} ? 10 : 9 ; # stat で返される配列の何番目をみるか。  9 は変更時刻。
+my @ Files = () ;
+
+main () ; exit 0 ;
+
+sub wanted {
+  my @s = stat $_ ;
+  my $xtime = $s[ $sf ] ; # 8 は atime, 9 は mtime, 10 は ctime
+  my $bytes = $s[ 7 ] ; 
+  push @ Files , App::lasttouch::fileinfo -> new ( $_ , $xtime, $bytes ) if ! ( -d _ && do { $_.='/' ;1} ) || $o{d} ; 
+}
+
+sub main { 
+  my @sdir = @ARGV ? @ARGV : qw[ . ] ; 
+  find ( { wanted => \& wanted , no_chdir => 1 } , @sdir ) ;
+  my $now = time ; 
+  $_ ->{ elapsed } = $now - $_->{xtime} for @Files ; 
+  @ Files = sort { $a ->{elapsed} <=> $b->{elapsed} } @Files ; 
+
+  say join "\t", "Diff_seconds", "Seconds_before", "Byte_size", "File_name" ; 
+  my $mrec0 = 0 ; 
+  my $shown = 0 ;
+  for ( splice @Files , 0 , $o{g} ) { 
+    my @t ; 
+    my $mrec = $_->{elapsed} ; 
+    push @t , sprintf "%0.6f" , $mrec - $mrec0 ;
+    push @t , sprintf "%0.6f" , $mrec ; 
+    push @t , $_->{bytes}, $_->{name} ; 
+    $t[2] =~ s/(?<=\d)(?=(\d\d\d)+($|\D))/,/g if $o{','} // '' ne "0" ; 
+    say join "\t" , @t ;
+    $shown ++ ; 
+    $mrec0 = $mrec ; 
+  }
+  my $num = @ Files ; 
+  my $elps = sprintf "%.6f" , tv_interval $start_time ; 
+  say STDERR CYAN "Files processed : $num ; Shown above : $shown ;  Elapsed seconds : $elps" ;
+}
+
+sub HELP_MESSAGE { # <-- - サブコマンドが呼ばれているときはそのヘルプが呼ばれる。
+  local @ARGV = do { my ($x,@y) = 0 ; 1 while ( @y = caller $x++ )[ 0 ] eq "Getopt::Std" ; $y[1] } ;
+  Pod::Perldoc -> run ;
+}
+sub VERSION_MESSAGE { $ Getopt::Std::STANDARD_HELP_VERSION = 1 } ; 
+
+
+package App::lasttouch::fileinfo ;
+
+sub new ( $ ) { #say 1 ;
+  my $ins = { name => $_[1] , xtime => $_[2] , bytes => $_[3] } ; 
+  return bless $ins ;
+} 
+
+=encoding utf8
+
+=head1 NAME
+
+ lastaccess DIRNAME 
+
+ DIRNAMEの下にあるファイルで、最後に変更された順にファイルを表示する。
+
+ オプション: 
+   -a   : 各ファイルの変更日時ではなくて、アクセスされた日時(atime)を見る。
+   -a   : 各ファイルの変更日時ではなくて、作成された日時(ctime)を見る。 
+   -d 0 : 途中で現れるディレクトリに対する処理を抑制する。
+   -g N : 最大最近の何個を取り出すかの指定。未指定なら12。
+   -, 0 : 3桁区切りのコンマを抑制する。
+
+  開発メモ : 
+    * ソートを行っているので、数十万個を超えるファイルがその下の階層のどこかにある場合は計算リソースが気になる。工夫が必要。
+    * 各ファイルのパスの文字列をそのままメモリ上に載せているので、パス名ではないただのファイル名で十分なはずを、何倍も無駄をしている。改良したい。
+
+=cut
